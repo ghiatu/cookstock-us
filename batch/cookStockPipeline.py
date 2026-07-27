@@ -13,11 +13,8 @@ import os
 import sys
 #set cookstock path
 def find_path():
-        home_dir = os.path.expanduser("~")  # Get the home directory
-        for root, dirs, files in os.walk(home_dir):  # Walk through the directory structure
-            if 'cookstock' in dirs:
-                return os.path.join(root, 'cookstock')
-        return None  # Return None if the folder was not found
+    # หา root ของ repo จากตำแหน่งไฟล์นี้เอง แทนการเดินหาโฟลเดอร์ชื่อ 'cookstock'
+    return os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 #set cookstock path
 basePath = os.path.join(find_path())
@@ -25,6 +22,9 @@ basePath = os.path.join(find_path())
 srcPath = os.path.join(basePath, 'src')
 print("Adding to sys.path:", srcPath)
 sys.path.insert(0, srcPath)
+
+import matplotlib
+matplotlib.use('Agg')
 
 import matplotlib.pyplot as plt
 import cookStock
@@ -45,25 +45,11 @@ current_date = dt.date.today().strftime("%m_%d_%Y")
 #set sector names to be run
 # sectorCollection = [SectorConstants.TECH, SectorConstants.HEALTH_CARE, SectorConstants.BASICS, SectorConstants.SERVICES, SectorConstants.FINANCE, SectorConstants.ENERGY, SectorConstants.NON_DURABLE_GOODS, SectorConstants.DURABLE_GOODS]
 
-sectorCollection = [SectorConstants.TECH, SectorConstants.HEALTH_CARE,SectorConstants.FINANCE, SectorConstants.ENERGY]
+from get_sp100 import get_sp100_tickers
 
-# sectorCollection = [SectorConstants.TECH]
-
-sectorName = []
-selected = [] 
-for sector in sectorCollection:
-    filtered_by_sector = get_tickers_filtered(sectors=sector)
-    #remove underscore in sector name
-    sector = sector.replace(" ", "")
-    sectorName.append(sector)
-    for i in filtered_by_sector: 
-        if i not in selected: 
-            selected.append(i) 
-
-#convert sectorCollection to a file name
-sectorNameStr = '_'.join(sectorName)
-
-# selected = ['DSP']
+# scan เฉพาะ S&P100 100 ตัวแรก (ปรับ limit=10 ตอนทดสอบให้รันเร็วขึ้น)
+selected = get_sp100_tickers(limit=100)
+sectorNameStr = "SP100"
 
 y = batch_process(selected, sectorNameStr)
 y.batch_pipeline_full()

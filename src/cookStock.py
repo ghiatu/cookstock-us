@@ -11,15 +11,14 @@ import datetime as dt
 import os.path
 from time import sleep
 import sys
+import yfinance as yf
+import pandas as pd
 
 import matplotlib.pyplot as plt
 
 def find_path():
-    home_dir = os.path.expanduser("~")  # Get the home directory
-    for root, dirs, files in os.walk(home_dir):  # Walk through the directory structure
-        if 'cookstock' in dirs:
-            return os.path.join(root, 'cookstock')
-    return None  # Return None if the folder was not found
+    # หา root ของ repo จากตำแหน่งไฟล์นี้เอง แทนการเดินหาโฟลเดอร์ชื่อ 'cookstock'
+    return os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 basePath = find_path()
 yhPath = os.path.join(basePath, 'yahoofinancials')
 sys.path.insert(0, yhPath)
@@ -52,6 +51,39 @@ class cookFinancials(YahooFinancials):
     current_stickerPrice = []
     #define some parameters
     
+
+    def get_historical_price_data(self, start_date, end_date, time_interval='daily'):
+        """
+        Override เมธอดเดิมจาก YahooFinancials ให้ใช้ yfinance แทน
+        (endpoint เดิมที่ yahoofinancials ใช้ถูก Yahoo จำกัดการเข้าถึงบ่อยขึ้นเรื่อยๆ)
+        คืนข้อมูลรูปแบบเดียวกับของเดิม เพื่อให้โค้ดส่วนอื่นไม่ต้องแก้
+        """
+        interval_map = {'daily': '1d', 'weekly': '1wk', 'monthly': '1mo'}
+        interval = interval_map.get(time_interval, '1d')
+
+        tickers = self.ticker if isinstance(self.ticker, list) else [self.ticker]
+        result = {}
+        for t in tickers:
+            df = yf.download(t, start=start_date, end=end_date, interval=interval,
+                              progress=False, auto_adjust=False)
+            prices = []
+            if not df.empty:
+                if isinstance(df.columns, pd.MultiIndex):
+                    df.columns = df.columns.get_level_values(0)
+                for date, row in df.iterrows():
+                    prices.append({
+                        'date': int(date.timestamp()),
+                        'high': float(row['High']),
+                        'low': float(row['Low']),
+                        'open': float(row['Open']),
+                        'close': float(row['Close']),
+                        'volume': int(row['Volume']) if pd.notna(row['Volume']) else 0,
+                        'adjclose': float(row['Adj Close']) if 'Adj Close' in row and pd.notna(row['Adj Close']) else float(row['Close']),
+                        'formatted_date': date.strftime('%Y-%m-%d'),
+                    })
+            result[t] = {'prices': prices}
+        return result
+
     def __init__(self, ticker):
         super().__init__(ticker)  # Calls the parent class's initializer
         if isinstance(ticker, str):
@@ -767,8 +799,8 @@ class batch_process:
                     print("congrats, this stock passes all strategys, run volatility contraction pattern")
                     superStock.append(self.tickers[i])    
                 append_to_json(self.result_file, self.tickers[i])
-            except Exception:
-                print("error!")
+            except Exception as e:
+                print("error!", type(e).__name__, e)
                 pass
         
             
@@ -780,6 +812,7 @@ class batch_process:
             try:
                 ticker = self.tickers[i]
                 print(ticker)
+                sleep(5)
                 x = cookFinancials(ticker)
                 flag = x.combined_best_strategy()
                 if flag == True:
@@ -883,8 +916,8 @@ class batch_process:
                             ticker_data[ticker]['fig'] = figName
                             
                         append_to_json(self.result_file, ticker_data)
-            except Exception:
-                print("error!")
+            except Exception as e:
+                print("error!", type(e).__name__, e)
                 pass
 
             
@@ -943,8 +976,8 @@ class batch_process:
                 with open(self.jsfile, "w") as f:
                     js.dump(data, f, indent=4) 
                 print('=====================================')
-            except Exception:
-                print("error!")
+            except Exception as e:
+                print("error!", type(e).__name__, e)
                 pass
             
 def load_json(filepath):
