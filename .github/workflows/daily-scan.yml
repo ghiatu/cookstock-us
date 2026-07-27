@@ -20,8 +20,8 @@ jobs:
 
       - name: Install dependencies
         run: |
-          pip install pandas numpy matplotlib requests beautifulsoup4 lxml html5lib yfinance
-
+          pip install pandas numpy matplotlib requests beautifulsoup4 lxml html5lib yfinance yahoofinancials
+          
       - name: Run CookStock pipeline (S&P100)
         run: python batch/cookStockPipeline.py
 
